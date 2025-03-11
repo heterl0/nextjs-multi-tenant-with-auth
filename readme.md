@@ -1,47 +1,115 @@
-# Next.js Multi-Tenant Setup with Authentication
+# Multi-Tenant Applications with Next.js: Subdomain with Auth
 
-This project demonstrates a multi-tenant Next.js setup where each tenant has its own subdomain. A shared login subdomain sets a user cookie for authentication.
+
+## Introduction
+
+Multi-tenancy is a software architecture where a single instance of an application serves multiple tenants (customers or users). This README outlines how to create a multi-tenant application using Next.js with subdomain-based tenant separation.
+
+![multi-tenant-demo](https://github.com/user-attachments/assets/ab952ab7-e37d-400c-8fb5-1d80f3fc2d3e)
+
+## Key Features of Multi-Tenancy
+
+- **Shared Infrastructure** 📈
+- **Tenant Isolation** 🔒
+- **Cost Efficiency** 💸
+- **Scalability** 🚀
+
+
+## Project Structure
+
+```plaintext
+.
+├── app/
+│   ├── [subdomain]/     # Tenant-specific subdirectory
+│   │   ├── page.tsx     # Main page for the tenant
+│   │   └── layout.tsx   # Layout for tenant pages
+│   └── middleware.ts    # Middleware for request handling
+├── public/
+│   └── images/tenant1/  # Tenant-specific static assets
+├── package.json         # Project configuration
+└── .env                 # Environment variables
+```
+
+
+## Middleware Implementation
+
+The `middleware.ts` file handles routing, authentication, and request rewriting based on subdomains:
+
+```typescript
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { domain } from "@/lib/env";
+
+export function middleware(request: NextRequest) {
+  const hostname = request.headers.get("host") || "";
+  const url = request.nextUrl.clone();
+  const tenantSlug = hostname.split(".")[0];
+
+  if (hostname === domain || hostname === domain.split(":")[0]) {
+    return NextResponse.redirect(new URL(`http://login.${domain}`));
+  }
+
+  if (tenantSlug === "login") {
+    if (url.pathname !== "/" && url.pathname !== "/api/login") {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+    return NextResponse.next();
+  }
+  
+  // In this example for easy auth I use userId as cookie auth Token
+  const userId = request.cookies.get("userId")?.value;
+  if (!userId && tenantSlug !== "login") {
+    return NextResponse.redirect(new URL(`http://login.${domain}/`, request.url));
+  }
+
+  url.pathname = `/${tenantSlug}${url.pathname}`;
+  return NextResponse.rewrite(url);
+}
+
+export const config = {
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico).*)",
+  ],
+};
+```
+
 
 ## How It Works
 
-- **Domain & Subdomain Redirects**  
-  The `middleware.ts` checks the hostname to identify the tenant subdomain. If the user is not authenticated (no `userId` cookie), they are redirected to the login subdomain.
+1. **Subdomain Detection** 📍: Extract subdomain from the `host` header.
+2. **Authentication** 🔑: Redirect unauthenticated users to the login subdomain.
+3. **Route Rewriting** 🔄: Rewrite requests to serve tenant-specific pages.
+4. **Cookie Management** 🍪: Set `userId` cookie upon successful authentication.
 
-- **Cookie-Based Auth**  
-  The login subdomain sets a `userId` cookie, making subsequent requests from the tenant subdomain authenticated.
+## Implementation Steps
 
-- **Route Rewriting**  
-  After establishing the tenant, the path is rewritten in the middleware to serve tenant-specific pages under `/<tenant_slug>` routes internally.
+1. **Domain Configuration** 📊: Point main domain and subdomains to the same server.
+2. **Environment Variables** 📝: Define root domain in `.env` file.
+3. **Local Development** 💻: Use host aliases or local DNS tools for testing.
+4. **Authentication Flow** 🔒: Create login page at `login.yourdomain.com`.
+5. **Tenant-Specific Pages** 📁: Build pages in the `[subdomain]` directory.
 
-## Getting Started
+## Advantages
 
-1. **Setting Up Domain**  
-   - Point the main domain and all subdomains to the same Next.js app.
+- **Scalability** 🚀
+- **Isolation** 🔒
+- **Flexibility** 🎨
 
-2. **Middleware Configuration**  
-   - The `middleware.ts` negotiates redirects for login or subdomain routes.  
-   - Update the `domain` in `@/lib/env` with your actual domain.
 
-3. **Login Flow**  
-   - Accessing `login.yourdomain.com` provides a login form that, upon success, sets the `userId` cookie and redirects to `<tenant>.yourdomain.com`.
+## Demo
 
-4. **Local Development**  
-   - Use host aliases (e.g., `127.0.0.1 login.localhost`, etc.) or a local DNS manager tool to replicate subdomains.
+Check out the [live demo](https://login.heterl0.live/) to see the multi-tenant application in action.
 
-## Detailed Explanation
-1. **Domain & DNS**  
-   Ensure the main domain and all subdomains (e.g., login.yourdomain.com, tenant1.yourdomain.com) point to the same Next.js server.
-2. **Environment Configuration**  
-   In `@/lib/env`, define `domain` to match your root domain. This ensures the middleware logic correctly identifies the subdomain.
-3. **Middleware Logic**  
-   - The `middleware.ts` checks `host` to derive the tenantSlug.  
-   - If user has no `userId` cookie, redirect to login subdomain.  
-   - If accessing the login subdomain, allow login flow to set the `userId` cookie and redirect to the correct tenant.
-4. **Local Development**  
-   Use host aliases or a local DNS tool for subdomains so you can test tenant logic locally (e.g., `login.localhost`, `tenant1.localhost`, etc.).
+Multi-tenant Demo 📹
 
-For deeper details, review:
-- `middleware.ts` for path rewriting and cookie checks
-- `package.json` for scripts and dependencies
-- `next.config.js` for build and image settings
+## Disclaimer
 
+This approach is based on personal experience and may not be the most optimal solution for all use cases. It's inspired by various sources, including [Vercel's guide on building multi-tenant apps](https://vercel.com/guides/nextjs-multi-tenant-application). For production use, consider exploring more robust authentication methods and official documentation.
+
+## Further Reading
+
+For more projects and contributions, visit [https://github.com/heterl0/](https://github.com/heterl0/).
+
+## References
+
+1. [How to Build a Multi-Tenant App with Custom Domains Using Next.js](https://vercel.com/guides/nextjs-multi-tenant-application) 📚
