@@ -26,9 +26,6 @@ export function middleware(request: NextRequest) {
   }
 
   if (cookieParam) {
-    console.log("cookieParam", cookieParam);
-    console.log("tenantSlug", tenantSlug);
-
     const response = NextResponse.redirect(
       new URL(`http://${tenantSlug}.${domain}`, request.url)
     );
